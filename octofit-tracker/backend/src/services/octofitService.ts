@@ -73,7 +73,17 @@ export async function createTeam(input: unknown) {
     throw Object.assign(new Error('Team members must exist'), { status: 404 });
   }
 
-  return Team.create({ name, mascot, members: memberIds });
+  const team = await Team.create({ name, mascot, members: memberIds });
+  if (memberIds.length > 0) {
+    await Promise.all([
+      User.updateMany({ _id: { $in: memberIds } }, { $set: { team: team._id } }),
+      Team.updateMany(
+        { _id: { $ne: team._id }, members: { $in: memberIds } },
+        { $pull: { members: { $in: memberIds } } },
+      ),
+    ]);
+  }
+  return team;
 }
 
 export async function getLeaderboard() {
